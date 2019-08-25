@@ -59,19 +59,31 @@ const deleteNote = `mutation deleteNote($id: ID!){
   }
 }`;
 
+const searchNote = `query searchNotes($search: String){
+  searchNotes(filter:{note:{match:$search}}){
+    items{
+      id
+      note
+    }
+  }
+}`
+
 class App extends Component {
   constructor(props){
     super(props);
     this.state={
       id:"",
       notes:[],
+      searchResults:[],
       value:"",
       displayAdd:true,
-      displayUpdate:false
+      displayUpdate:false,
+      displaySearch:false
     };
     this.handleChange = this.handleChange.bind(this);
     this.handleSubmit = this.handleSubmit.bind(this);
     this.handleUpdate = this.handleUpdate.bind(this);
+    this.handleSearch = this.handleSearch.bind(this);
   }
 
   async componentDidMount(){
@@ -103,6 +115,16 @@ class App extends Component {
     this.listNotes();
     this.setState({displayAdd:true,displayUpdate:false,value:""});
   }
+  async handleSearch(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const search = {"search":this.state.value};
+    const result = await API.graphql(graphqlOperation(searchNote, search));
+    this.setState({searchResults:result.data.searchNotes.items,notes:[],displaySearch:true,value:""});   
+    if(JSON.stringify(result.data.searchNotes.items) === '[]'){
+      this.setState({searchResults:[{note:"No Match: Clear the search to go back to your Notes"}]});
+    };
+  }
   selectNote(note){
     this.setState({id:note.id,value:note.note,displayAdd:false,displayUpdate:true});
   }
@@ -121,6 +143,12 @@ class App extends Component {
         </button>
       </div>
       )
+    const searchResults = [].concat(this.state.searchResults)
+      .map((item,i)=> 
+      <div className="alert alert-success show" role="alert">
+        <span key={item.i}>{item.note}</span>
+      </div>
+      )
     return (
       <div className="App">
         <header style={headerStyle}>
@@ -134,6 +162,7 @@ class App extends Component {
                 <input type="text" className="form-control form-control-lg" placeholder="New Note" aria-label="Note" aria-describedby="basic-addon2" value={this.state.value} onChange={this.handleChange}/>
                 <div className="input-group-append">
                   <button className="btn btn-primary" type="submit">Add Note</button>
+                  <button className="btn btn-primary border border-light" type="button" onClick={this.handleSearch}>Search</button>
                 </div>
               </div>
             </form>
@@ -151,6 +180,12 @@ class App extends Component {
         </div>
         <br/>
         <div className="container">
+          {searchResults}
+            {this.state.displaySearch ?
+              <button className="button btn-success float-right" onClick={this.listNotes.bind(this)}>
+                <span aria-hidden="true">Clear Search</span>
+              </button>
+            : null }
           {data}
         </div>
       </div>
